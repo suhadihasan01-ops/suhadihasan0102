@@ -1,12 +1,7 @@
 -- =================================================================
--- Script  : SAMBUNG KATA AUTO PLAY V2 (PRAWIRAHUB EDITION)
+-- Script  : SAMBUNG KATA AUTO PLAY
 -- Author  : PrawiraXLIV
--- Support : PC & Mobile (HP) - ABSOLUTE CRASH FREE
--- Update  : - Logic Blacklist vs Used Word Akurat 100%
---           - Spy Musuh -> Auto Use (Biar ga kecolongan)
---           - Eksekusi Kata Berurutan sesuai Nomor List (1, 2, 3...)
---           - Clr All -> Auto Delete File & Create New
---           - DB Github Bhuzel + 4 Slider Independen
+-- Support : PC & Mobile (HP)
 -- =================================================================
 
 local Players           = game:GetService("Players")
