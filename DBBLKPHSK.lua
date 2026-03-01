@@ -1,11 +1,7 @@
 -- =================================================================
--- Script  : SAMBUNG KATA AUTO PLAY V2 (PRAWIRAHUB EDITION)
+-- Script  : SAMBUNG KATA AUTO PLAY
 -- Author  : PrawiraXLIV
--- Support : PC & Mobile (HP) - ABSOLUTE CRASH FREE
--- Update  : - Smart Import: Merge DB teman tanpa menimpa DB lama
---           - Blacklist Priority: Blacklist teman otomatis menghapus DB lokal yang sama
---           - Anti-Duplikat 100% pada sistem Import Export
---           - Kembali pakai logic VIM 100% (Zero-Typo) + 4 Slider
+-- Support : PC & Mobile (HP)
 -- =================================================================
 
 local Players           = game:GetService("Players")
