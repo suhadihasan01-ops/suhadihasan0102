@@ -64,7 +64,7 @@ end
 -- DATABASE (SINGLE GITHUB LINK)
 -- ============================================================
 local URLS = {
-    "https://raw.githubusercontent.com/ZellExp/DatabaseRoblox/refs/heads/main/ZellRayyKBBI-SambungKata"
+    "https://raw.githubusercontent.com/suhadihasan01-ops/suhadihasan0102/refs/heads/main/KBBI-SuhadiHasan"
 }
 
 local KamusDict    = {}
