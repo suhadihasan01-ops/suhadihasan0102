@@ -1,7 +1,11 @@
 -- =================================================================
--- Script  : SAMBUNG KATA AUTO PLAY
+-- Script  : SAMBUNG KATA AUTO PLAY V2 (PRAWIRAHUB EDITION)
 -- Author  : PrawiraXLIV
--- Support : PC & Mobile (HP)
+-- Support : PC & Mobile (HP) - ABSOLUTE CRASH FREE
+-- Update  : - DB SuhadiHasan (Single Github Link)
+--           - Strict Anti-Duplicate (LocalDB tidak akan bentrok dgn Github)
+--           - Smart Import: Otomatis buang kata yang sudah ada di Github
+--           - Auto-Cleaner & Auto-Merge 100% Akurat
 -- =================================================================
 
 local Players           = game:GetService("Players")
@@ -19,6 +23,7 @@ if guiParent:FindFirstChild("SambungKataGUI") then guiParent.SambungKataGUI:Dest
 if guiParent:FindFirstChild("PrawiraAntiAfk") then guiParent.PrawiraAntiAfk:Destroy() end
 
 local scriptConnections = {}
+local isMobile = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
 
 -- ============================================================
 -- SYSTEM FOLDER BUILDER
@@ -61,7 +66,7 @@ local function AddLog(msg)
 end
 
 -- ============================================================
--- DATABASE (SINGLE GITHUB LINK)
+-- DATABASE (GITHUB SUHADI HASAN)
 -- ============================================================
 local URLS = {
     "https://raw.githubusercontent.com/suhadihasan01-ops/suhadihasan0102/refs/heads/main/KBBI-SuhadiHasan"
@@ -96,6 +101,7 @@ local TableList    = {
 }
 local selectedTable = TableList[1]
 
+-- FUNGSI REGISTRASI KATA & FILTER PANJANG HURUF
 local function RegisterWord(w)
     if type(w) ~= "string" then return false end
     local wl = w:lower()
@@ -174,7 +180,7 @@ local MIN_SPEED      = 0.01; local MAX_SPEED      = 1.00
 local DeleteSpeed    = 0.05
 local MIN_DEL_SPEED  = 0.01; local MAX_DEL_SPEED  = 1.00
 local MIN_TURN_DELAY = 0.1;  local MAX_TURN_DELAY = 2.0
-local EnterDelay     = 0.10  
+local EnterDelay     = 0.10
 
 local filterModes = {
     "Tanpa Filter (None)","KIAMAT (W,X,Z,V,F,Q,UZ)","9 JEBAKAN MAUT",
@@ -686,7 +692,7 @@ end
 setScrollPlaceholder("Menunggu database...", THEME.Neon)
 
 -- ============================================================
--- EXPORT & IMPORT (SMART MERGE LOGIC)
+-- EXPORT & IMPORT (COMBINED LOGIC)
 -- ============================================================
 BtnExpComb.MouseButton1Click:Connect(function()
     if setclipboard then
@@ -706,29 +712,35 @@ BtnImpComb.MouseButton1Click:Connect(function()
     if ok and type(data) == "table" then
         local cntDB, cntBlk = 0, 0
         
-        -- Step 1: Process Blacklist (Highest Priority)
+        -- Prioritas 1: Blacklist
         if data.BlacklistDB then
-            for k, v in pairs(data.BlacklistDB) do
+            for k, _ in pairs(data.BlacklistDB) do
                 local word = tostring(k):lower()
                 if not BlacklistDB[word] then
                     BlacklistDB[word] = true
                     cntBlk = cntBlk + 1
                 end
-                -- Auto remove from LocalDB if it was blacklisted by friend
+                -- Auto hapus dari LocalDB jika masuk blacklist
                 if LocalDB[word] then LocalDB[word] = nil end
             end
         end
         
-        -- Step 2: Process LocalDB
+        -- Prioritas 2: Local DB
         local sourceDB = data.LocalDB or (not data.BlacklistDB and data) or {}
-        for k, v in pairs(sourceDB) do 
+        for k, _ in pairs(sourceDB) do 
             local word = tostring(k):lower()
+            -- Seleksi ketat: panjang > 2, tidak di blacklist, dan TIDAK ADA di Github
             if #word > 2 and not BlacklistDB[word] then
-                if not LocalDB[word] then
-                    LocalDB[word] = true
-                    cntDB = cntDB + 1
+                if not GithubDict[word] then
+                    if not LocalDB[word] then
+                        LocalDB[word] = true
+                        cntDB = cntDB + 1
+                        RegisterWord(word) -- Register agar lsg bs digunakan
+                    else
+                        totalDuplicates = totalDuplicates + 1
+                    end
                 else
-                    totalDuplicates = totalDuplicates + 1
+                    totalDuplicates = totalDuplicates + 1 -- Dianggap duplikat karena udh ada di Github
                 end
             end
         end
@@ -1082,11 +1094,12 @@ if remotes then
                 local cw = data.NewWord:lower():gsub("[^%a]", "")
                 if #cw > 0 then
                     if #cw < 3 then
+                        -- Buang ke Blacklist jika musuh hoki pakai kata < 3 huruf
                         BlacklistDB[cw] = true; SaveDatabases()
                     else
                         UsedWords[cw] = true 
-                        if RegisterWord(cw) then
-                            LocalDB[cw] = true; SaveDatabases()
+                        if not KamusDict[cw] and not BlacklistDB[cw] and not GithubDict[cw] then
+                            LocalDB[cw] = true; SaveDatabases(); RegisterWord(cw)
                         else
                             totalDuplicates = totalDuplicates + 1
                         end
@@ -1110,7 +1123,7 @@ if remotes then
                         if #cw > 2 then
                             UsedWords[cw] = true
                             lastRiwayatWord = cw; UpdateRiwayatUI()
-                            if not KamusDict[cw] and not BlacklistDB[cw] then
+                            if not KamusDict[cw] and not BlacklistDB[cw] and not GithubDict[cw] then
                                 LocalDB[cw]=true; SaveDatabases(); RegisterWord(cw)
                             end
                             if LocalPlayer:GetAttribute("CurrentTable") then
@@ -1252,8 +1265,8 @@ local function TypeSingleWord(kata, passedPrefix)
     
     while tick() < timeout and scriptActive do
         task.wait(0.05)
-        -- Validasi bahwa giliran kita sukses lewat
-        if wordStatus == "correct" or (currentPlayerTurn ~= LocalPlayer) then
+        local checkPref = getPrefix()
+        if wordStatus == "correct" or (checkPref and checkPref ~= safePrefix) then
             isAccepted = true
             break
         end
@@ -1265,8 +1278,11 @@ local function TypeSingleWord(kata, passedPrefix)
         lastRiwayatWord = wKasar; UpdateRiwayatUI()
         if LblStatus then LblStatus.Text = "✓ BENAR: "..wKasar:upper(); LblStatus.TextColor3 = THEME.Neon end
         
-        if RegisterWord(wKasar) then LocalDB[wKasar]=true; SaveDatabases()
-        else totalDuplicates=totalDuplicates+1 end
+        if not GithubDict[wKasar] and RegisterWord(wKasar) then 
+            LocalDB[wKasar]=true; SaveDatabases()
+        else 
+            totalDuplicates=totalDuplicates+1 
+        end
         
         UpdateDBStatUI()
         if TriggerListRefresh then TriggerListRefresh() end
