@@ -2,10 +2,9 @@
 -- Script  : SAMBUNG KATA AUTO PLAY V2 (PRAWIRAHUB EDITION)
 -- Author  : PrawiraXLIV
 -- Support : PC & Mobile (HP) - ABSOLUTE CRASH FREE
--- Update  : - DB SuhadiHasan (Single Github Link)
---           - Strict Anti-Duplicate (LocalDB tidak akan bentrok dgn Github)
---           - Smart Import: Otomatis buang kata yang sudah ada di Github
---           - Auto-Cleaner & Auto-Merge 100% Akurat
+-- Update  : - Tambah Fitur "Export Clean DB (Git + Local)" ke .txt
+--           - Filter Otomatis buang Blacklist & Gabung LocalDB Tanpa Duplikat
+--           - Logic VIM 100% (Zero-Typo) + 4 Slider Independen
 -- =================================================================
 
 local Players           = game:GetService("Players")
@@ -66,10 +65,10 @@ local function AddLog(msg)
 end
 
 -- ============================================================
--- DATABASE (GITHUB SUHADI HASAN)
+-- DATABASE (GITHUB BHUZEL)
 -- ============================================================
 local URLS = {
-    "https://raw.githubusercontent.com/suhadihasan01-ops/suhadihasan0102/refs/heads/main/KBBI-SuhadiHasan"
+    "https://raw.githubusercontent.com/Bhuzel/RobloxScript/refs/heads/main/DatabaseBhuzel-KBBI-Indo.txt"
 }
 
 local KamusDict    = {}
@@ -224,6 +223,7 @@ local THEME = {
     BtnExport      = Color3.fromRGB(20,80,120),
     BtnImport      = Color3.fromRGB(100,60,120),
     BtnReset       = Color3.fromRGB(50,50,80),
+    BtnSpecial     = Color3.fromRGB(138, 43, 226), -- Purple for Clean DB
     BoxBg          = Color3.fromRGB(15,15,15),
     SlotBg         = Color3.fromRGB(35,35,40),
     Font           = Enum.Font.GothamBold,
@@ -537,7 +537,7 @@ end)
 
 
 -- ========================================================================
--- 2. KOLOM TENGAH (INFO & STATUS LABELS)
+-- 2. KOLOM TENGAH (INFO & STATUS LABELS & CLEAN EXPORT)
 -- ========================================================================
 local MY = 52
 local function makeLbl(y, txt, col, fs)
@@ -581,6 +581,81 @@ local function makeRiwBtn(y, txt, bg)
 end
 local BtnRiwayatDB        = makeRiwBtn(MY+242, "📚 Riwayat New Local DB",  THEME.BtnExport)
 local BtnRiwayatBlacklist = makeRiwBtn(MY+272, "🚫 Riwayat Blacklist",     THEME.BtnDelete)
+
+-- FITUR BARU: EXPORT CLEAN DB .TXT
+local BtnExportCleanDB    = makeRiwBtn(MY+302, "💾 Export Clean DB (Git+Local)", THEME.BtnSpecial)
+
+BtnExportCleanDB.MouseButton1Click:Connect(function()
+    if not writefile then
+        LblStatus.Text = "Executor tidak support writefile!"
+        LblStatus.TextColor3 = THEME.Red
+        return
+    end
+
+    LblStatus.Text = "Memproses Export Clean DB..."
+    LblStatus.TextColor3 = THEME.Yellow
+    AddLog("Mulai export Clean DB (Git + Local)...")
+
+    task.spawn(function()
+        local rawKBBI = ""
+        pcall(function()
+            rawKBBI = game:HttpGet(URLS[1]) 
+        end)
+
+        local MergedDB = {}
+        local totalAwal = 0
+        local totalDihapus = 0
+        local totalTambahanLocal = 0
+
+        -- 1. Proses Data Github (Menyaring yang ada di Blacklist / < 3 huruf)
+        for line in string.gmatch(rawKBBI, "[^\r\n]+") do
+            local w = string.match(line, "([%a]+)")
+            if w then
+                w = w:lower()
+                totalAwal = totalAwal + 1
+                if not BlacklistDB[w] and #w >= 3 then
+                    MergedDB[w] = true
+                else
+                    totalDihapus = totalDihapus + 1
+                end
+            end
+        end
+
+        -- 2. Proses Data LocalDB (Tambahan)
+        for w, _ in pairs(LocalDB) do
+            if not BlacklistDB[w] and #w >= 3 then
+                if not MergedDB[w] then
+                    MergedDB[w] = true
+                    totalTambahanLocal = totalTambahanLocal + 1
+                end
+            end
+        end
+
+        -- 3. Extract & Sort Alphabetically
+        local cleanArray = {}
+        for w, _ in pairs(MergedDB) do
+            table.insert(cleanArray, w)
+        end
+        table.sort(cleanArray)
+
+        -- 4. Save File to Txt
+        local resultText = table.concat(cleanArray, "\n")
+        local path = "PrawiraHubSambungKata/Database/Clean_KBBI_Prawira.txt"
+        pcall(function()
+            writefile(path, resultText)
+        end)
+
+        -- 5. Update UI
+        LblStatus.Text = "Export Selesai: " .. #cleanArray .. " Kata!"
+        LblStatus.TextColor3 = THEME.Neon
+        AddLog("Export Selesai! Git: " .. totalAwal .. " | Dihapus: " .. totalDihapus .. " | +Local: " .. totalTambahanLocal)
+        print("=== EXPORT CLEAN DB SELESAI ===")
+        print("Total Kata Awal : " .. totalAwal)
+        print("Terbuang (Blacklist/Pendek) : " .. totalDihapus)
+        print("Tambahan Local : " .. totalTambahanLocal)
+        print("Disimpan di : workspace/" .. path)
+    end)
+end)
 
 
 -- ========================================================================
@@ -1265,8 +1340,8 @@ local function TypeSingleWord(kata, passedPrefix)
     
     while tick() < timeout and scriptActive do
         task.wait(0.05)
-        local checkPref = getPrefix()
-        if wordStatus == "correct" or (checkPref and checkPref ~= safePrefix) then
+        -- Validasi bahwa giliran kita sukses lewat
+        if wordStatus == "correct" or (currentPlayerTurn ~= LocalPlayer) then
             isAccepted = true
             break
         end
@@ -1278,11 +1353,8 @@ local function TypeSingleWord(kata, passedPrefix)
         lastRiwayatWord = wKasar; UpdateRiwayatUI()
         if LblStatus then LblStatus.Text = "✓ BENAR: "..wKasar:upper(); LblStatus.TextColor3 = THEME.Neon end
         
-        if not GithubDict[wKasar] and RegisterWord(wKasar) then 
-            LocalDB[wKasar]=true; SaveDatabases()
-        else 
-            totalDuplicates=totalDuplicates+1 
-        end
+        if RegisterWord(wKasar) then LocalDB[wKasar]=true; SaveDatabases()
+        else totalDuplicates=totalDuplicates+1 end
         
         UpdateDBStatUI()
         if TriggerListRefresh then TriggerListRefresh() end
@@ -1503,7 +1575,6 @@ end)
 -- ============================================================
 local function ExecuteAutoType(prefix, searchPool)
     local strikes = 0
-    -- Mencoba berurutan dari list nomor 1, 2, 3..
     for _, kata in ipairs(searchPool) do
         if not autoTypeEnabled or not scriptActive then break end
         if strikes >= 4 then LblStatus.Text="BAHAYA! 4x Gagal, Manual!"; LblStatus.TextColor3=THEME.Red; task.wait(2); break end
